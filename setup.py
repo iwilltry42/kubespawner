@@ -1,6 +1,10 @@
 from __future__ import print_function
-from setuptools import setup, find_packages
+
+import os
 import sys
+from glob import glob
+
+from setuptools import find_packages, setup
 
 v = sys.version_info
 if v[:2] < (3, 6):
@@ -10,6 +14,7 @@ if v[:2] < (3, 6):
 
 setup(
     name='jupyterhub-kubespawner',
+    scripts=glob(os.path.join('scripts', '*')),
     version='0.11.2.dev',
     install_requires=[
         'async_generator>=1.8',
@@ -18,6 +23,7 @@ setup(
         'jinja2',
         'kubernetes>=10.1.0',
         'pyYAML',
+        'notebook>=4.0'
     ],
     python_requires='>=3.6',
     extras_require={

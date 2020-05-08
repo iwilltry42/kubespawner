@@ -274,11 +274,17 @@ def make_pod(
     if all([e is None for e in container_security_context.to_dict().values()]):
         container_security_context = None
 
+    # port == 0: do not create a port object
+    if port == 0:
+        ports = []
+    else:
+        ports=[V1ContainerPort(name='notebook-port', container_port=port)]
+
     notebook_container = V1Container(
         name='notebook',
         image=image,
         working_dir=working_dir,
-        ports=[V1ContainerPort(name='notebook-port', container_port=port)],
+        ports=ports,
         env=[V1EnvVar(k, v) for k, v in (env or {}).items()],
         args=cmd,
         image_pull_policy=image_pull_policy,

@@ -5,45 +5,37 @@ This module exports `KubeSpawner` class, which is the actual spawner
 implementation that should be used by JupyterHub.
 """
 
-from functools import partial  # noqa
-from datetime import datetime
 import json
-import os
-import sys
-import string
 import multiprocessing
-from concurrent.futures import ThreadPoolExecutor
+import os
+import string
+import sys
+import time
 import warnings
+from asyncio import sleep
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from functools import partial  # noqa
 
-from tornado import gen
-from tornado.ioloop import IOLoop
-from tornado.concurrent import run_on_executor
-from tornado import web
-from traitlets import (
-    Bool,
-    Dict,
-    Integer,
-    List,
-    Unicode,
-    Union,
-    default,
-    observe,
-    validate,
-)
-from jupyterhub.spawner import Spawner
-from jupyterhub.utils import exponential_backoff
-from jupyterhub.traitlets import Command
-from kubernetes.client.rest import ApiException
-from kubernetes import client
 import escapism
-from jinja2 import Environment, BaseLoader
+from async_generator import async_generator, yield_
+from jinja2 import BaseLoader, Environment
+from jupyterhub.spawner import Spawner
+from jupyterhub.traitlets import Command
+from jupyterhub.utils import exponential_backoff
+from kubernetes import client
+from kubernetes.client.rest import ApiException
+from traitlets import (Bool, Dict, Integer, List, Unicode, Union, default,
+                       observe, validate)
 
-from .clients import shared_client
-from kubespawner.traitlets import Callable
 from kubespawner.objects import make_pod, make_pvc
 from kubespawner.reflector import NamespacedResourceReflector
-from asyncio import sleep
-from async_generator import async_generator, yield_
+from kubespawner.traitlets import Callable
+from tornado import gen, web
+from tornado.concurrent import run_on_executor
+from tornado.ioloop import IOLoop
+
+from .clients import shared_client
 
 
 class PodReflector(NamespacedResourceReflector):
@@ -413,7 +405,7 @@ class KubeSpawner(Spawner):
     )
 
     image = Unicode(
-        'jupyterhub/singleuser:latest',
+        'jupytertest:local',
         config=True,
         help="""
         Docker image to use for spawning user's containers.
@@ -1394,10 +1386,21 @@ class KubeSpawner(Spawner):
         labels = self._build_pod_labels(self._expand_all(self.extra_labels))
         annotations = self._build_common_annotations(self._expand_all(self.extra_annotations))
 
+        port_selection = self.port
+        # FIXME: use a real config option instead of an annotation
+        if "jupyterhub/port" in self.extra_annotations:
+            if self.extra_annotations["jupyterhub/port"] == "auto":
+                print("AUTO CHOOSING PORT")
+                port_selection = 0
+                if real_cmd:
+                    real_cmd = ["/opt/conda/bin/kubespawner-autoport"] + real_cmd
+                else:
+                    real_cmd = ["/opt/conda/bin/kubespawner-autoport"]
+
         return make_pod(
             name=self.pod_name,
             cmd=real_cmd,
-            port=self.port,
+            port=port_selection,
             image=self.image,
             image_pull_policy=self.image_pull_policy,
             image_pull_secret=self.image_pull_secrets,
@@ -1850,6 +1853,12 @@ class KubeSpawner(Spawner):
                     ]
                 ),
             )
+
+        while self.port == 0:
+            print("waiting...")
+            yield gen.sleep(1*time.second)
+
+        print("PORT: ", self.port)
         return (pod.status.pod_ip, self.port)
 
     @gen.coroutine
