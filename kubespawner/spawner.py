@@ -1395,9 +1395,9 @@ class KubeSpawner(Spawner):
                         if arg.startswith("--port="):
                             self.log.debug(f"Removing '--port' flag from cmd for pod {self.pod_name}, which chooses the port itself")
                             real_cmd.remove(arg)
-                    real_cmd = ["/opt/conda/bin/kubespawner-autoport"] + real_cmd
+                    real_cmd = ["kubespawner-autoport"] + real_cmd
                 else:
-                    real_cmd = ["/opt/conda/bin/kubespawner-autoport"]
+                    real_cmd = ["kubespawner-autoport"]
         self.log.debug(f"Full CMD for pod {self.pod_name} is '{real_cmd}'")
         port_selection = self.port
 
