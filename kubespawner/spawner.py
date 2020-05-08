@@ -10,7 +10,6 @@ import multiprocessing
 import os
 import string
 import sys
-import time
 import warnings
 from asyncio import sleep
 from concurrent.futures import ThreadPoolExecutor
@@ -1386,16 +1385,21 @@ class KubeSpawner(Spawner):
         labels = self._build_pod_labels(self._expand_all(self.extra_labels))
         annotations = self._build_common_annotations(self._expand_all(self.extra_annotations))
 
-        port_selection = self.port
         # FIXME: use a real config option instead of an annotation
         if "jupyterhub/port" in self.extra_annotations:
             if self.extra_annotations["jupyterhub/port"] == "auto":
-                print("AUTO CHOOSING PORT")
-                port_selection = 0
+                self.log.info(f"Letting pod {self.pod_name} choose the port itself")
+                self.port = 0
                 if real_cmd:
+                    for arg in real_cmd:
+                        if arg.startswith("--port="):
+                            self.log.debug(f"Removing '--port' flag from cmd for pod {self.pod_name}, which chooses the port itself")
+                            real_cmd.remove(arg)
                     real_cmd = ["/opt/conda/bin/kubespawner-autoport"] + real_cmd
                 else:
                     real_cmd = ["/opt/conda/bin/kubespawner-autoport"]
+        self.log.debug(f"Full CMD for pod {self.pod_name} is '{real_cmd}'")
+        port_selection = self.port
 
         return make_pod(
             name=self.pod_name,
@@ -1854,11 +1858,12 @@ class KubeSpawner(Spawner):
                 ),
             )
 
+        if self.port == 0:
+            self.log.info(f"Pod {self.pod_name} has port set to 0, so we wait for it to set the real port itself")
         while self.port == 0:
-            print("waiting...")
-            yield gen.sleep(1*time.second)
-
-        print("PORT: ", self.port)
+            self.log.debug(f"Waiting for {self.pod_name} to send the real port number...")
+            yield gen.sleep(1)
+        self.log.info(f"Pod {self.pod_name} is listening on port {self.port}")
         return (pod.status.pod_ip, self.port)
 
     @gen.coroutine
