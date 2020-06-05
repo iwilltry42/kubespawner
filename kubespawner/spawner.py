@@ -178,6 +178,7 @@ class KubeSpawner(Spawner):
         # runs during both test and normal execution
         self.pod_name = self._expand_user_properties(self.pod_name_template)
         self.pvc_name = self._expand_user_properties(self.pvc_name_template)
+        self.image = self._expand_user_properties(self.image)
         if self.working_dir:
             self.working_dir = self._expand_user_properties(self.working_dir)
         if self.port == 0:
@@ -2006,6 +2007,9 @@ class KubeSpawner(Spawner):
                 self.log.debug(".. overriding KubeSpawner value %s=%s (callable result)", k, v)
             else:
                 self.log.debug(".. overriding KubeSpawner value %s=%s", k, v)
+            if k == "image":
+                v = self._expand_user_properties(v)
+                self.log.info(".. expanded username on image: '%s'", v)
             setattr(self, k, v)
 
     # set of recognised user option keys
