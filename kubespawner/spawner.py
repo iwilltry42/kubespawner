@@ -24,8 +24,6 @@ from jupyterhub.traitlets import Command
 from jupyterhub.utils import exponential_backoff
 from kubernetes import client
 from kubernetes.client.rest import ApiException
-from traitlets import (Bool, Dict, Integer, List, Unicode, Union, default,
-                       observe, validate)
 
 from kubespawner.objects import make_pod, make_pvc
 from kubespawner.reflector import NamespacedResourceReflector
@@ -33,6 +31,8 @@ from kubespawner.traitlets import Callable
 from tornado import gen, web
 from tornado.concurrent import run_on_executor
 from tornado.ioloop import IOLoop
+from traitlets import (Bool, Dict, Integer, List, Unicode, Union, default,
+                       observe, validate)
 
 from .clients import shared_client
 
@@ -1395,9 +1395,9 @@ class KubeSpawner(Spawner):
                         if arg.startswith("--port="):
                             self.log.debug(f"Removing '--port' flag from cmd for pod {self.pod_name}, which chooses the port itself")
                             real_cmd.remove(arg)
-                    real_cmd = ["/opt/conda/bin/kubespawner-autoport"] + real_cmd
+                    real_cmd = ["kubespawner-autoport"] + real_cmd # FIXME: add configuration option to specify the path to the executable
                 else:
-                    real_cmd = ["/opt/conda/bin/kubespawner-autoport"]
+                    real_cmd = ["kubespawner-autoport"]
         self.log.debug(f"Full CMD for pod {self.pod_name} is '{real_cmd}'")
         port_selection = self.port
 
